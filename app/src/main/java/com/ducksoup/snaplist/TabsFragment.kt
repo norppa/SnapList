@@ -10,10 +10,12 @@ import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
 import androidx.viewpager2.adapter.FragmentStateAdapter
 import androidx.viewpager2.widget.ViewPager2
+import com.google.android.material.tabs.TabLayout
+import com.google.android.material.tabs.TabLayoutMediator
 
 class TabsFragment() : Fragment() {
 
-    private val tabs = listOf("one", "two", "three")
+    private val lists = mutableListOf<SList>()
 
     override fun onCreateView(
         inflater: LayoutInflater, container: ViewGroup?,
@@ -23,22 +25,50 @@ class TabsFragment() : Fragment() {
     }
 
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
-        view.findViewById<ViewPager2>(R.id.pager).adapter = TabsAdapter(this, tabs)
+        addMockItems()
+        val viewPager = view.findViewById<ViewPager2>(R.id.pager)
+        val tabLayout = view.findViewById<TabLayout>(R.id.tab_layout)
+        viewPager.adapter = TabsAdapter(this, lists)
+        TabLayoutMediator(tabLayout, viewPager) { tab, position ->
+            tab.text = lists[position].name
+        }.attach()
+    }
+
+    private fun addMockItems() {
+        lists.add(
+            SList(
+                "todo",
+                mutableListOf(
+                    SItem("do chores", false),
+                    SItem("chop wood", false),
+                    SItem("sleep", true)
+                )
+            ))
+        lists.add(
+            SList(
+                "shop",
+                mutableListOf(
+                    SItem("milk", false),
+                    SItem("eggs", false),
+                    SItem("beer", true)
+                )
+            )
+        )
     }
 
 }
 
-class TabsAdapter(fragment: Fragment, private val tabList: List<String>) :
+class TabsAdapter(fragment: Fragment, private val tabList: List<SList>) :
     FragmentStateAdapter(fragment) {
     override fun getItemCount(): Int = tabList.size
 
     override fun createFragment(position: Int): Fragment {
-        return TabFragment(position)
+        return TabFragment(tabList[position].items)
     }
 
 }
 
-class TabFragment(private val position: Int) : Fragment() {
+class TabFragment(private val items: List<SItem>) : Fragment() {
     override fun onCreateView(
         inflater: LayoutInflater,
         container: ViewGroup?,
@@ -48,22 +78,17 @@ class TabFragment(private val position: Int) : Fragment() {
     }
 
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
-        val bogusList = (1..5).map { "$position: item #$it" }
-        val list = view.findViewById<RecyclerView>(R.id.list)
-        list.layoutManager = LinearLayoutManager(context)
-        list.adapter = ListAdapter(bogusList)
+        val recyclerView = view.findViewById<RecyclerView>(R.id.list)
+        recyclerView.layoutManager = LinearLayoutManager(context)
+        recyclerView.adapter = ListAdapter(items)
     }
 }
 
-class ListAdapter(private val list: List<String>) :
+class ListAdapter(private val list: List<SItem>) :
     RecyclerView.Adapter<ListAdapter.ViewHolder>() {
 
     class ViewHolder(view: View) : RecyclerView.ViewHolder(view) {
-        val textView: TextView
-
-        init {
-            textView = view.findViewById(R.id.textView)
-        }
+        val textView: TextView = view.findViewById(R.id.textView)
     }
 
     override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): ViewHolder {
@@ -73,7 +98,7 @@ class ListAdapter(private val list: List<String>) :
     }
 
     override fun onBindViewHolder(holder: ViewHolder, position: Int) {
-        holder.textView.text = list[position]
+        holder.textView.text = list[position].label
     }
 
     override fun getItemCount(): Int = list.size
