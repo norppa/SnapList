@@ -45,7 +45,16 @@ interface SnapListDao {
     suspend fun deleteItems(listId: Int)
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
-    suspend fun insertList(list: SList)
+    suspend fun insertList(list: SList): Long
+
+    @Query("DELETE FROM lists WHERE id = :listId")
+    suspend fun deleteListOnly(listId: Int)
+
+    @Transaction
+    suspend fun deleteList(listId: Int) {
+        deleteListOnly(listId)
+        deleteItems(listId)
+    }
 
     // These control which list (tab) is selected
 

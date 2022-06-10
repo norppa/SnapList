@@ -4,6 +4,8 @@
 
     <group android:id="@+id/menu_group_1">
         <item android:id="@+id/remove_items" android:title="Delete all items" />
+        <item android:id="@+id/create_list" android:title="Add a new list" />
+        <item android:id="@+id/remove_list" android:title="Delete list" />
         <item android:id="@+id/menu_settings"
             android:title="@string/menu_settings" />
     </group>

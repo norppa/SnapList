@@ -11,8 +11,10 @@ import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
 import com.ducksoup.snaplist.model.SItem
 import com.ducksoup.snaplist.model.SList
+import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import com.google.android.material.floatingactionbutton.FloatingActionButton
 import com.google.android.material.tabs.TabLayout
+import com.google.android.material.textfield.TextInputEditText
 import kotlinx.coroutines.*
 
 class MainActivity : AppCompatActivity() {
@@ -51,10 +53,8 @@ class MainActivity : AppCompatActivity() {
             dao.getLists().forEach {
                 tabLayout.addTab(tabLayout.newTab().setId(it.id).setText(it.name))
             }
-            (0 until tabLayout.tabCount).forEach {
-                val tab = tabLayout.getTabAt(it)
-                if (tab?.id == selectedListId) tab.select()
-            }
+            focusSelectedTab()
+
             items.clear()
             items.addAll(dao.getItems(selectedListId))
             adapter.notifyDataSetChanged()
@@ -95,9 +95,46 @@ class MainActivity : AppCompatActivity() {
         return when (item.itemId) {
             R.id.remove_items -> {
                 coroutineScope.launch { dao.deleteItems(selectedListId) }
-                val c = items.size
                 items.clear()
-                adapter.notifyItemRangeRemoved(0, c)
+                adapter.notifyDataSetChanged()
+                true
+            }
+            R.id.create_list -> {
+                val view =
+                    LayoutInflater.from(this).inflate(R.layout.create_list_dialog, null, false)
+                val input = view.findViewById<TextInputEditText>(R.id.createListDialogInput)
+                MaterialAlertDialogBuilder(this)
+                    .setView(view)
+                    .setNegativeButton("Cancel") { _, _ ->
+                        input.setText("")
+                    }
+                    .setPositiveButton("Add") { _, _ ->
+                        val listName = input.text.toString()
+                        val list = SList(input.text.toString())
+                        runBlocking {
+                            selectedListId = dao.insertList(list).toInt()
+                            dao.setSelectedList(selectedListId)
+
+                        }
+                        tabLayout.addTab(tabLayout.newTab().setId(selectedListId).setText(listName))
+                        focusSelectedTab()
+                        items.clear()
+                        adapter.notifyDataSetChanged()
+                        input.setText("")
+                    }
+                    .show()
+                true
+            }
+            R.id.remove_list -> {
+                MaterialAlertDialogBuilder(this)
+                    .setTitle("Confirm List Deletion")
+                    .setMessage("Are you sure?")
+                    .setNegativeButton("Cancel", null)
+                    .setPositiveButton("Delete") { _, _ ->
+                        coroutineScope.launch { dao.deleteList(selectedListId) }
+                        removeSelectedTab()
+                    }
+                    .show()
                 true
             }
             R.id.menu_settings -> {
@@ -119,20 +156,24 @@ class MainActivity : AppCompatActivity() {
         startActivity(intent)
     }
 
-    private fun generateBogusData() {
-        runBlocking {
-            dao.deleteAllLists()
-            dao.insertList(SList("todo"))
-            dao.insertList(SList("shop"))
-            val lists = dao.getLists()
-            dao.deleteAllChoices()
-            dao.initChoices(lists[0].id)
+    private fun focusSelectedTab() {
+        (0 until tabLayout.tabCount).forEach {
+            val tab = tabLayout.getTabAt(it)
+            if (tab?.id == selectedListId) tab.select()
         }
     }
 
-    private fun initializeTabLayout() {
-
-
+    private fun removeSelectedTab() {
+        var i = 0
+        var tab: TabLayout.Tab?
+        while (i < tabLayout.tabCount) {
+            tab = tabLayout.getTabAt(i)
+            if (tab?.id == selectedListId) {
+                tabLayout.removeTabAt(i)
+                break
+            }
+            i++
+        }
     }
 }
 
