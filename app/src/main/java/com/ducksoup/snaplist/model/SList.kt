@@ -5,5 +5,10 @@ import androidx.room.PrimaryKey
 
 @Entity(tableName = "lists")
 class SList (
-    @PrimaryKey val name: String
-)
+    val name: String,
+    @PrimaryKey(autoGenerate = true) val id: Int = 0,
+) {
+    override fun toString(): String {
+        return "{ id: ${this.id}, name: ${this.name} }"
+    }
+}
