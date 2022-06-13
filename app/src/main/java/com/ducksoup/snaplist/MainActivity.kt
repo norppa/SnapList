@@ -9,7 +9,7 @@ import android.view.*
 import android.widget.EditText
 import android.widget.TextView
 import androidx.core.content.ContextCompat
-import androidx.core.content.res.ResourcesCompat.getColor
+import androidx.core.view.MenuCompat
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
 import com.ducksoup.snaplist.model.SItem
@@ -89,20 +89,33 @@ class MainActivity : AppCompatActivity() {
     }
 
     override fun onCreateOptionsMenu(menu: Menu?): Boolean {
-        val inflater: MenuInflater = menuInflater
-        inflater.inflate(R.menu.menu, menu)
+        menuInflater.inflate(R.menu.menu, menu)
+        if (menu != null) MenuCompat.setGroupDividerEnabled(menu, true)
         return true
     }
 
     override fun onOptionsItemSelected(item: MenuItem): Boolean {
         return when (item.itemId) {
-            R.id.remove_items -> {
-                coroutineScope.launch { dao.deleteItems(selectedListId) }
-                items.clear()
+            R.id.del_all_items -> {
+                MaterialAlertDialogBuilder(this)
+                    .setTitle("Confirm Item Deletion")
+                    .setMessage("Are you sure?")
+                    .setNegativeButton("Cancel", null)
+                    .setPositiveButton("Delete") { _, _ ->
+                        coroutineScope.launch { dao.deleteItems(selectedListId) }
+                        items.clear()
+                        adapter.notifyDataSetChanged()
+                    }
+                    .show()
+                true
+            }
+            R.id.del_chk_items -> {
+                coroutineScope.launch { dao.deleteCheckedItems(selectedListId) }
+                items.removeAll { it.checked }
                 adapter.notifyDataSetChanged()
                 true
             }
-            R.id.create_list -> {
+            R.id.add_list -> {
                 val view =
                     LayoutInflater.from(this).inflate(R.layout.create_list_dialog, null, false)
                 val input = view.findViewById<TextInputEditText>(R.id.createListDialogInput)
@@ -128,7 +141,7 @@ class MainActivity : AppCompatActivity() {
                     .show()
                 true
             }
-            R.id.remove_list -> {
+            R.id.del_list -> {
                 MaterialAlertDialogBuilder(this)
                     .setTitle("Confirm List Deletion")
                     .setMessage("Are you sure?")

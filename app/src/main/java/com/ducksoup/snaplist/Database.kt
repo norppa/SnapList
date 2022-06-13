@@ -47,6 +47,9 @@ interface SnapListDao {
     @Query("DELETE FROM items WHERE listId = :listId")
     suspend fun deleteItems(listId: Int)
 
+    @Query("DELETE FROM items WHERE listId = :listId AND checked = 1")
+    suspend fun deleteCheckedItems(listId: Int)
+
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertList(list: SList): Long
 
