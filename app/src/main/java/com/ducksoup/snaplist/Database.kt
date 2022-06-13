@@ -41,6 +41,9 @@ interface SnapListDao {
     @Insert
     suspend fun insertItem(item: SItem)
 
+    @Query("UPDATE items SET checked = :checked WHERE id = :itemId")
+    suspend fun setItemChecked(checked: Boolean, itemId: Int)
+
     @Query("DELETE FROM items WHERE listId = :listId")
     suspend fun deleteItems(listId: Int)
 

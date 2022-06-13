@@ -2,11 +2,14 @@ package com.ducksoup.snaplist
 
 import android.annotation.SuppressLint
 import android.content.Intent
+import android.graphics.Paint
 import androidx.appcompat.app.AppCompatActivity
 import android.os.Bundle
 import android.view.*
 import android.widget.EditText
 import android.widget.TextView
+import androidx.core.content.ContextCompat
+import androidx.core.content.res.ResourcesCompat.getColor
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
 import com.ducksoup.snaplist.model.SItem
@@ -43,7 +46,7 @@ class MainActivity : AppCompatActivity() {
         input = findViewById(R.id.input)
         submit = findViewById(R.id.submitInput)
 
-        adapter = SnapListAdapter(items)
+        adapter = SnapListAdapter()
         recyclerView.layoutManager = LinearLayoutManager(applicationContext)
         recyclerView.adapter = adapter
 
@@ -175,28 +178,44 @@ class MainActivity : AppCompatActivity() {
             i++
         }
     }
-}
 
-class SnapListAdapter(private val items: List<SItem>) :
-    RecyclerView.Adapter<SnapListAdapter.ViewHolder>() {
+    inner class SnapListAdapter() : RecyclerView.Adapter<SnapListAdapter.ViewHolder>() {
 
-    class ViewHolder(view: View) : RecyclerView.ViewHolder(view) {
-        val textView = view.findViewById<TextView>(R.id.textView)
+        private val colorGray = ContextCompat.getColor(applicationContext, R.color.lightgray)
+        private val colorBlack = ContextCompat.getColor(applicationContext, R.color.black)
+
+        inner class ViewHolder(view: View) : RecyclerView.ViewHolder(view) {
+            val textView: TextView = view.findViewById(R.id.textView)
+        }
+
+        override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): ViewHolder {
+            val view = LayoutInflater.from(parent.context)
+                .inflate(R.layout.main_list_item, parent, false)
+            return ViewHolder(view)
+        }
+
+        override fun onBindViewHolder(holder: ViewHolder, position: Int) {
+            val textView = holder.textView
+            val item = items[position]
+            textView.text = item.label
+            if (item.checked) {
+                textView.setTextColor(colorGray)
+                textView.paintFlags = textView.paintFlags or Paint.STRIKE_THRU_TEXT_FLAG
+            } else {
+                textView.setTextColor(colorBlack)
+                textView.paintFlags = textView.paintFlags and Paint.STRIKE_THRU_TEXT_FLAG.inv()
+            }
+
+            textView.setOnClickListener {
+                runBlocking { dao.setItemChecked(!item.checked, item.id) }
+                items[position].checked = !item.checked
+                this.notifyItemChanged(position)
+            }
+        }
+
+        override fun getItemCount(): Int = items.size
+
     }
-
-    override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): ViewHolder {
-        val view = LayoutInflater.from(parent.context)
-            .inflate(R.layout.main_list_item, parent, false)
-        return ViewHolder(view)
-    }
-
-    override fun onBindViewHolder(holder: ViewHolder, position: Int) {
-        holder.textView.text = items[position].label
-    }
-
-    override fun getItemCount(): Int = items.size
-
-
 }
 
 
