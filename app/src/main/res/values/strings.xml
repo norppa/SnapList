@@ -3,4 +3,6 @@
     <string name="menu_settings">Settings</string>
     <!-- TODO: Remove or change this placeholder text -->
     <string name="hello_blank_fragment">Hello blank fragment</string>
+    <string name="add_new_item">Add new item</string>
+    <string name="new_item">New Item</string>
 </resources>
