@@ -9,4 +9,6 @@
     <string name="delete_all_items">Delete all items</string>
     <string name="add_a_new_list">Add a new list</string>
     <string name="delete_list">Delete list</string>
+    <string name="initial_activity_info">You don\'t have any lists</string>
+    <string name="create_a_list">Create a list</string>
 </resources>

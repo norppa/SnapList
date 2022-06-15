@@ -3,13 +3,17 @@ package com.ducksoup.snaplist
 import android.annotation.SuppressLint
 import android.content.Intent
 import android.graphics.Paint
-import androidx.appcompat.app.AppCompatActivity
 import android.os.Bundle
 import android.view.*
+import android.widget.Button
 import android.widget.EditText
+import android.widget.LinearLayout
 import android.widget.TextView
+import androidx.appcompat.app.AppCompatActivity
+import androidx.constraintlayout.widget.ConstraintLayout
 import androidx.core.content.ContextCompat
 import androidx.core.view.MenuCompat
+import androidx.core.view.isEmpty
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
 import com.ducksoup.snaplist.model.SItem
@@ -18,7 +22,11 @@ import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import com.google.android.material.floatingactionbutton.FloatingActionButton
 import com.google.android.material.tabs.TabLayout
 import com.google.android.material.textfield.TextInputEditText
-import kotlinx.coroutines.*
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.runBlocking
+
 
 class MainActivity : AppCompatActivity() {
 
@@ -26,48 +34,44 @@ class MainActivity : AppCompatActivity() {
     private val dao by lazy { database.dao() }
     private val coroutineScope = CoroutineScope(SupervisorJob())
 
+    private lateinit var initialView: LinearLayout
+    private lateinit var mainView: ConstraintLayout
     private lateinit var tabLayout: TabLayout
     private lateinit var recyclerView: RecyclerView
     private lateinit var input: EditText
     private lateinit var submit: FloatingActionButton
     private lateinit var adapter: SnapListAdapter
+    private lateinit var initialListButton: Button
 
     private var items = mutableListOf<SItem>()
-
-    private var selectedListId = 0
+    private var selectedListId = -1
 
     @SuppressLint("NotifyDataSetChanged")
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
+        Prefs.init(this)
+
+        mainView = findViewById(R.id.mainView)
+        initialView = findViewById(R.id.initialView)
 
         tabLayout = findViewById(R.id.tabLayout)
         recyclerView = findViewById(R.id.recyclerView)
         input = findViewById(R.id.input)
         submit = findViewById(R.id.submitInput)
 
+        initialListButton = findViewById(R.id.initialListButton)
+
         adapter = SnapListAdapter()
         recyclerView.layoutManager = LinearLayoutManager(applicationContext)
         recyclerView.adapter = adapter
 
-//        generateBogusData()
-        runBlocking {
-            selectedListId = database.dao().getSelectedList()
-            dao.getLists().forEach {
-                tabLayout.addTab(tabLayout.newTab().setId(it.id).setText(it.name))
-            }
-            focusSelectedTab()
-
-            items.clear()
-            items.addAll(dao.getItems(selectedListId))
-            adapter.notifyDataSetChanged()
-        }
-
         tabLayout.addOnTabSelectedListener(object : TabLayout.OnTabSelectedListener {
             override fun onTabSelected(tab: TabLayout.Tab?) {
+                println("onTabSelected")
                 selectedListId = tab?.id ?: error("Missing tab id")
+                println("selectedListId $selectedListId")
                 coroutineScope.launch {
-                    dao.setSelectedList(selectedListId)
                     items.clear()
                     items.addAll(dao.getItems(selectedListId))
                     runOnUiThread { adapter.notifyDataSetChanged() }
@@ -86,6 +90,36 @@ class MainActivity : AppCompatActivity() {
             input.setText("")
         }
 
+        initialListButton.setOnClickListener { openAddListDialog(true) }
+
+        val lists = runBlocking { dao.getLists() }
+
+        if (lists.isEmpty()) {
+            loadInitialView()
+        } else {
+            lists.forEach {
+                tabLayout.addTab(tabLayout.newTab().setId(it.id).setText(it.name))
+            }
+            selectedListId = Prefs.getSelectedList()
+            if (selectedListId < 0 || lists.none { it.id == selectedListId }) {
+                Prefs.setSelectedList(lists[0].id)
+            }
+            focusSelectedTab()
+            val listItems = runBlocking { dao.getItems(selectedListId) }
+            items.clear()
+            items.addAll(listItems)
+            adapter.notifyDataSetChanged()
+        }
+    }
+
+    override fun onStop() {
+        super.onStop()
+        println("onStop $selectedListId")
+        if (tabLayout.tabCount == 0) {
+            Prefs.delSelectedList()
+        } else {
+            Prefs.setSelectedList(selectedListId)
+        }
     }
 
     override fun onCreateOptionsMenu(menu: Menu?): Boolean {
@@ -116,60 +150,20 @@ class MainActivity : AppCompatActivity() {
                 true
             }
             R.id.add_list -> {
-                val view =
-                    LayoutInflater.from(this).inflate(R.layout.create_list_dialog, null, false)
-                val input = view.findViewById<TextInputEditText>(R.id.createListDialogInput)
-                MaterialAlertDialogBuilder(this)
-                    .setView(view)
-                    .setNegativeButton("Cancel") { _, _ ->
-                        input.setText("")
-                    }
-                    .setPositiveButton("Add") { _, _ ->
-                        val listName = input.text.toString()
-                        val list = SList(input.text.toString())
-                        runBlocking {
-                            selectedListId = dao.insertList(list).toInt()
-                            dao.setSelectedList(selectedListId)
-
-                        }
-                        tabLayout.addTab(tabLayout.newTab().setId(selectedListId).setText(listName))
-                        focusSelectedTab()
-                        items.clear()
-                        adapter.notifyDataSetChanged()
-                        input.setText("")
-                    }
-                    .show()
+                openAddListDialog()
                 true
             }
             R.id.del_list -> {
-                MaterialAlertDialogBuilder(this)
-                    .setTitle("Confirm List Deletion")
-                    .setMessage("Are you sure?")
-                    .setNegativeButton("Cancel", null)
-                    .setPositiveButton("Delete") { _, _ ->
-                        coroutineScope.launch { dao.deleteList(selectedListId) }
-                        removeSelectedTab()
-                    }
-                    .show()
+                openDelListDialog()
                 true
             }
             R.id.menu_settings -> {
-                navigateTo("settings")
+                val intent = Intent(this, SettingsActivity::class.java).apply {}
+                startActivity(intent)
                 true
             }
             else -> super.onOptionsItemSelected(item)
         }
-    }
-
-    private fun navigateTo(target: String) {
-        val targetClass = when (target) {
-            "settings" -> SettingsActivity::class.java
-            else -> error("Invalid navigation target")
-        }
-        val intent = Intent(this, targetClass).apply {
-
-        }
-        startActivity(intent)
     }
 
     private fun focusSelectedTab() {
@@ -190,6 +184,17 @@ class MainActivity : AppCompatActivity() {
             }
             i++
         }
+        if (tabLayout.tabCount == 0) loadInitialView()
+    }
+
+    private fun loadInitialView() {
+        findViewById<ConstraintLayout>(R.id.mainView).visibility = View.GONE
+        findViewById<LinearLayout>(R.id.initialView).visibility = View.VISIBLE
+    }
+
+    private fun loadMainView() {
+        findViewById<ConstraintLayout>(R.id.mainView).visibility = View.VISIBLE
+        findViewById<LinearLayout>(R.id.initialView).visibility = View.GONE
     }
 
     inner class SnapListAdapter() : RecyclerView.Adapter<SnapListAdapter.ViewHolder>() {
@@ -220,8 +225,8 @@ class MainActivity : AppCompatActivity() {
             }
 
             textView.setOnClickListener {
-                runBlocking { dao.setItemChecked(!item.checked, item.id) }
-                items[position].checked = !item.checked
+                item.checked = !item.checked
+                runBlocking { dao.updateItem(item) }
                 this.notifyItemChanged(position)
             }
         }
@@ -229,6 +234,53 @@ class MainActivity : AppCompatActivity() {
         override fun getItemCount(): Int = items.size
 
     }
+
+    private fun openAddListDialog(isFirst: Boolean = false) {
+        val view = LayoutInflater.from(this).inflate(R.layout.create_list_dialog, null, false)
+        val input = view.findViewById<TextInputEditText>(R.id.createListDialogInput)
+        MaterialAlertDialogBuilder(this)
+            .setView(view)
+            .setNegativeButton("Cancel") { _, _ ->
+                input.setText("")
+            }
+            .setPositiveButton("Add") { _, _ ->
+                val listName = input.text.toString()
+                addList(listName, isFirst)
+            }
+            .show()
+    }
+
+    private fun addList(name: String, isFirst: Boolean = false) {
+        val list = SList(name)
+        selectedListId = runBlocking { dao.insertList(list).toInt() }
+        if (isFirst) {
+            Prefs.setSelectedList(selectedListId)
+            tabLayout.addTab(tabLayout.newTab().setId(selectedListId).setText(name))
+            focusSelectedTab()
+            items.clear()
+            adapter.notifyDataSetChanged()
+            loadMainView()
+        } else {
+            tabLayout.addTab(tabLayout.newTab().setId(selectedListId).setText(name))
+            focusSelectedTab()
+            items.clear()
+            adapter.notifyDataSetChanged()
+            input.setText("")
+        }
+    }
+
+    private fun openDelListDialog() {
+        MaterialAlertDialogBuilder(this)
+            .setTitle("Confirm List Deletion")
+            .setMessage("Are you sure?")
+            .setNegativeButton("Cancel", null)
+            .setPositiveButton("Delete") { _, _ ->
+                runBlocking { dao.delList(selectedListId) }
+                removeSelectedTab()
+            }
+            .show()
+    }
+
 }
 
 

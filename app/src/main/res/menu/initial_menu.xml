@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<menu xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <group android:id="@+id/menu_group_2">
+        <item android:id="@+id/add_list" android:title="@string/add_a_new_list" />
+    </group>
+    <group android:id="@+id/menu_group_3">
+        <item android:id="@+id/menu_settings"
+            android:title="@string/menu_settings" />
+    </group>
+
+</menu>
