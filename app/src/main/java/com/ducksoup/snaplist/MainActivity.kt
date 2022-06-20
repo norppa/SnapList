@@ -68,9 +68,7 @@ class MainActivity : AppCompatActivity() {
 
         tabLayout.addOnTabSelectedListener(object : TabLayout.OnTabSelectedListener {
             override fun onTabSelected(tab: TabLayout.Tab?) {
-                println("onTabSelected")
                 selectedListId = tab?.id ?: error("Missing tab id")
-                println("selectedListId $selectedListId")
                 coroutineScope.launch {
                     items.clear()
                     items.addAll(dao.getItems(selectedListId))
@@ -131,22 +129,11 @@ class MainActivity : AppCompatActivity() {
     override fun onOptionsItemSelected(item: MenuItem): Boolean {
         return when (item.itemId) {
             R.id.del_all_items -> {
-                MaterialAlertDialogBuilder(this)
-                    .setTitle("Confirm Item Deletion")
-                    .setMessage("Are you sure?")
-                    .setNegativeButton("Cancel", null)
-                    .setPositiveButton("Delete") { _, _ ->
-                        coroutineScope.launch { dao.deleteItems(selectedListId) }
-                        items.clear()
-                        adapter.notifyDataSetChanged()
-                    }
-                    .show()
+                if (Prefs.confirmDelAllItems()) openDelAllItemsDialog() else delAllItems()
                 true
             }
             R.id.del_chk_items -> {
-                coroutineScope.launch { dao.deleteCheckedItems(selectedListId) }
-                items.removeAll { it.checked }
-                adapter.notifyDataSetChanged()
+                if (Prefs.confirmDelChkItems()) openDelChkItemsDialog() else delChkItems()
                 true
             }
             R.id.add_list -> {
@@ -154,7 +141,7 @@ class MainActivity : AppCompatActivity() {
                 true
             }
             R.id.del_list -> {
-                openDelListDialog()
+                if (Prefs.confirmDelList()) openDelListDialog() else delList()
                 true
             }
             R.id.menu_settings -> {
@@ -235,6 +222,40 @@ class MainActivity : AppCompatActivity() {
 
     }
 
+    private fun openDelChkItemsDialog() {
+        MaterialAlertDialogBuilder(this)
+            .setTitle("Confirm Item Deletion")
+            .setMessage("Are you sure?")
+            .setNegativeButton("Cancel", null)
+            .setPositiveButton("Delete") { _, _ ->
+                delChkItems()
+            }
+            .show()
+    }
+
+    private fun delChkItems() {
+        coroutineScope.launch { dao.deleteCheckedItems(selectedListId) }
+        items.removeAll { it.checked }
+        adapter.notifyDataSetChanged()
+    }
+
+    private fun openDelAllItemsDialog() {
+        MaterialAlertDialogBuilder(this)
+            .setTitle("Confirm Item Deletion")
+            .setMessage("Are you sure?")
+            .setNegativeButton("Cancel", null)
+            .setPositiveButton("Delete") { _, _ ->
+                delAllItems()
+            }
+            .show()
+    }
+
+    private fun delAllItems() {
+        coroutineScope.launch { dao.deleteItems(selectedListId) }
+        items.clear()
+        adapter.notifyDataSetChanged()
+    }
+
     private fun openAddListDialog(isFirst: Boolean = false) {
         val view = LayoutInflater.from(this).inflate(R.layout.create_list_dialog, null, false)
         val input = view.findViewById<TextInputEditText>(R.id.createListDialogInput)
@@ -274,11 +295,13 @@ class MainActivity : AppCompatActivity() {
             .setTitle("Confirm List Deletion")
             .setMessage("Are you sure?")
             .setNegativeButton("Cancel", null)
-            .setPositiveButton("Delete") { _, _ ->
-                runBlocking { dao.delList(selectedListId) }
-                removeSelectedTab()
-            }
+            .setPositiveButton("Delete") { _, _ ->  delList() }
             .show()
+    }
+
+    private fun delList() {
+        runBlocking { dao.delList(selectedListId) }
+        removeSelectedTab()
     }
 
 }

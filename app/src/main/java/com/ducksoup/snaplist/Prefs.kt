@@ -34,4 +34,29 @@ object Prefs {
             apply()
         }
     }
+
+    fun confirmDelChkItems():Boolean = sharedPreferences.getBoolean("confirmDeleteCheckedItems", false)
+    fun confirmDelAllItems(): Boolean =sharedPreferences.getBoolean("confirmDeleteAllItems", true)
+    fun confirmDelList(): Boolean = sharedPreferences.getBoolean("confirmDeleteList", true)
+
+    fun setConfirmDelChkItems(value: Boolean) {
+        with(sharedPreferences.edit()) {
+            putBoolean("confirmDeleteCheckedItems", value)
+            apply()
+        }
+    }
+    fun setConfirmDelAllItems(value: Boolean) {
+        with(sharedPreferences.edit()) {
+            putBoolean("confirmDeleteAllItems", value)
+            apply()
+        }
+    }
+    fun setConfirmDelList(value: Boolean) {
+        with(sharedPreferences.edit()) {
+            putBoolean("confirmDeleteList", value)
+            apply()
+        }
+    }
 }
+
+data class Confirmations(val checkedItems: Boolean, val allItems: Boolean, val lists: Boolean)
