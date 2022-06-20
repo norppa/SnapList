@@ -68,8 +68,9 @@ class MainActivity : AppCompatActivity() {
 
         tabLayout.addOnTabSelectedListener(object : TabLayout.OnTabSelectedListener {
             override fun onTabSelected(tab: TabLayout.Tab?) {
+                println("onTabSelected")
                 selectedListId = tab?.id ?: error("Missing tab id")
-                coroutineScope.launch {
+                runBlocking {
                     items.clear()
                     items.addAll(dao.getItems(selectedListId))
                     runOnUiThread { adapter.notifyDataSetChanged() }
@@ -102,6 +103,7 @@ class MainActivity : AppCompatActivity() {
             if (selectedListId < 0 || lists.none { it.id == selectedListId }) {
                 Prefs.setSelectedList(lists[0].id)
             }
+
             focusSelectedTab()
             val listItems = runBlocking { dao.getItems(selectedListId) }
             items.clear()
@@ -112,7 +114,6 @@ class MainActivity : AppCompatActivity() {
 
     override fun onStop() {
         super.onStop()
-        println("onStop $selectedListId")
         if (tabLayout.tabCount == 0) {
             Prefs.delSelectedList()
         } else {
@@ -200,6 +201,7 @@ class MainActivity : AppCompatActivity() {
         }
 
         override fun onBindViewHolder(holder: ViewHolder, position: Int) {
+            println("onBindViewHolder $position / ${items.size}")
             val textView = holder.textView
             val item = items[position]
             textView.text = item.label
@@ -295,7 +297,7 @@ class MainActivity : AppCompatActivity() {
             .setTitle("Confirm List Deletion")
             .setMessage("Are you sure?")
             .setNegativeButton("Cancel", null)
-            .setPositiveButton("Delete") { _, _ ->  delList() }
+            .setPositiveButton("Delete") { _, _ -> delList() }
             .show()
     }
 
