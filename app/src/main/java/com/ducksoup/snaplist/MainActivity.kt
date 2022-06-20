@@ -2,18 +2,14 @@ package com.ducksoup.snaplist
 
 import android.annotation.SuppressLint
 import android.content.Intent
-import android.graphics.Paint
 import android.os.Bundle
 import android.view.*
 import android.widget.Button
 import android.widget.EditText
 import android.widget.LinearLayout
-import android.widget.TextView
 import androidx.appcompat.app.AppCompatActivity
 import androidx.constraintlayout.widget.ConstraintLayout
-import androidx.core.content.ContextCompat
 import androidx.core.view.MenuCompat
-import androidx.core.view.isEmpty
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
 import com.ducksoup.snaplist.model.SItem
@@ -40,7 +36,7 @@ class MainActivity : AppCompatActivity() {
     private lateinit var recyclerView: RecyclerView
     private lateinit var input: EditText
     private lateinit var submit: FloatingActionButton
-    private lateinit var adapter: SnapListAdapter
+    private lateinit var adapter: MainListAdapter
     private lateinit var initialListButton: Button
 
     private var items = mutableListOf<SItem>()
@@ -62,13 +58,12 @@ class MainActivity : AppCompatActivity() {
 
         initialListButton = findViewById(R.id.initialListButton)
 
-        adapter = SnapListAdapter()
+        adapter = MainListAdapter(items, dao, applicationContext)
         recyclerView.layoutManager = LinearLayoutManager(applicationContext)
         recyclerView.adapter = adapter
 
         tabLayout.addOnTabSelectedListener(object : TabLayout.OnTabSelectedListener {
             override fun onTabSelected(tab: TabLayout.Tab?) {
-                println("onTabSelected")
                 selectedListId = tab?.id ?: error("Missing tab id")
                 runBlocking {
                     items.clear()
@@ -155,24 +150,18 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun focusSelectedTab() {
-        (0 until tabLayout.tabCount).forEach {
-            val tab = tabLayout.getTabAt(it)
-            if (tab?.id == selectedListId) tab.select()
-        }
+        selectedTab()?.select()
     }
 
-    private fun removeSelectedTab() {
+    private fun selectedTab(): TabLayout.Tab? {
         var i = 0
         var tab: TabLayout.Tab?
         while (i < tabLayout.tabCount) {
             tab = tabLayout.getTabAt(i)
-            if (tab?.id == selectedListId) {
-                tabLayout.removeTabAt(i)
-                break
-            }
+            if (tab?.id == selectedListId) return tab
             i++
         }
-        if (tabLayout.tabCount == 0) loadInitialView()
+        return null
     }
 
     private fun loadInitialView() {
@@ -185,49 +174,11 @@ class MainActivity : AppCompatActivity() {
         findViewById<LinearLayout>(R.id.initialView).visibility = View.GONE
     }
 
-    inner class SnapListAdapter() : RecyclerView.Adapter<SnapListAdapter.ViewHolder>() {
-
-        private val colorGray = ContextCompat.getColor(applicationContext, R.color.lightgray)
-        private val colorBlack = ContextCompat.getColor(applicationContext, R.color.black)
-
-        inner class ViewHolder(view: View) : RecyclerView.ViewHolder(view) {
-            val textView: TextView = view.findViewById(R.id.textView)
-        }
-
-        override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): ViewHolder {
-            val view = LayoutInflater.from(parent.context)
-                .inflate(R.layout.main_list_item, parent, false)
-            return ViewHolder(view)
-        }
-
-        override fun onBindViewHolder(holder: ViewHolder, position: Int) {
-            println("onBindViewHolder $position / ${items.size}")
-            val textView = holder.textView
-            val item = items[position]
-            textView.text = item.label
-            if (item.checked) {
-                textView.setTextColor(colorGray)
-                textView.paintFlags = textView.paintFlags or Paint.STRIKE_THRU_TEXT_FLAG
-            } else {
-                textView.setTextColor(colorBlack)
-                textView.paintFlags = textView.paintFlags and Paint.STRIKE_THRU_TEXT_FLAG.inv()
-            }
-
-            textView.setOnClickListener {
-                item.checked = !item.checked
-                runBlocking { dao.updateItem(item) }
-                this.notifyItemChanged(position)
-            }
-        }
-
-        override fun getItemCount(): Int = items.size
-
-    }
-
     private fun openDelChkItemsDialog() {
+        val nOfCheckedItems = items.filter { it.checked }.size
         MaterialAlertDialogBuilder(this)
-            .setTitle("Confirm Item Deletion")
-            .setMessage("Are you sure?")
+            .setTitle("Confirm Checked Item Deletion")
+            .setMessage("Are you sure you want to delete all ($nOfCheckedItems) checked items?")
             .setNegativeButton("Cancel", null)
             .setPositiveButton("Delete") { _, _ ->
                 delChkItems()
@@ -244,7 +195,7 @@ class MainActivity : AppCompatActivity() {
     private fun openDelAllItemsDialog() {
         MaterialAlertDialogBuilder(this)
             .setTitle("Confirm Item Deletion")
-            .setMessage("Are you sure?")
+            .setMessage("Are you sure you want to delete all (${items.size}) items?")
             .setNegativeButton("Cancel", null)
             .setPositiveButton("Delete") { _, _ ->
                 delAllItems()
@@ -293,9 +244,10 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun openDelListDialog() {
+        val selectedListName = selectedTab()?.text
         MaterialAlertDialogBuilder(this)
             .setTitle("Confirm List Deletion")
-            .setMessage("Are you sure?")
+            .setMessage("Are you sure you want to permanently delete the list \"${selectedListName}\" and all its items?")
             .setNegativeButton("Cancel", null)
             .setPositiveButton("Delete") { _, _ -> delList() }
             .show()
@@ -303,7 +255,8 @@ class MainActivity : AppCompatActivity() {
 
     private fun delList() {
         runBlocking { dao.delList(selectedListId) }
-        removeSelectedTab()
+        tabLayout.removeTab(selectedTab() ?: error("invalid selected tab"))
+        if (tabLayout.tabCount == 0) loadInitialView()
     }
 
 }

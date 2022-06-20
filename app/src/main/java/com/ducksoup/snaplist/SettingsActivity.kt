@@ -30,6 +30,5 @@ class SettingsActivity : AppCompatActivity() {
         delChkSwitch.isChecked = Prefs.confirmDelChkItems()
         delAllSwitch.isChecked = Prefs.confirmDelAllItems()
         delListSwitch.isChecked = Prefs.confirmDelList()
-        println("setting switches ${Prefs.confirmDelList()}")
     }
 }
